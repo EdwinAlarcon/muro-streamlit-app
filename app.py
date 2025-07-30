@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Jul 29 19:27:24 2025
+Created on Tue Jul 29 19:53:27 2025
 
 @author: USUARIO
 """
 
-# app.py
+# app.py (CORREGIDO)
 import streamlit as st
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -14,15 +14,9 @@ import io
 import sys
 from contextlib import redirect_stdout
 
-# Importa todas las funciones de tu script original
-from muro_analysis_funcs import (
-    perform_geotechnical_calculations,
-    graficar_muro_contencion,
-    realizar_diseno_refuerzo,
-    run_fem_analysis,
-    print_geotechnical_report,
-    generate_all_diagrams
-)
+# --- CAMBIO IMPORTANTE ---
+# Ahora importamos el módulo completo para poder referirnos a él
+import muro_analysis_funcs
 
 # --- Configuración de la Página ---
 st.set_page_config(
@@ -38,7 +32,6 @@ st.markdown("Esta aplicación web interactiva implementa los cálculos del scrip
 with st.sidebar:
     st.header("Parámetros de Entrada")
     
-    # Usamos un formulario para que la app no se recargue con cada cambio
     with st.form("input_form"):
         st.subheader("Dimensiones del Muro (m)")
         H2 = st.number_input("Altura pantalla (H2)", value=6.0, step=0.1)
@@ -63,12 +56,9 @@ with st.sidebar:
         fc = st.number_input("Resistencia concreto f'c (MPa)", value=21.0)
         fy = st.number_input("Fluencia acero fy (MPa)", value=420.0)
         
-        # Botón para enviar todos los datos a la vez
         submitted = st.form_submit_button("🚀 Analizar Muro")
 
-# --- Lógica de la Aplicación Principal ---
 if submitted:
-    # Recopilar todos los datos en un diccionario, igual que en tu script original
     data = {
         "H2": H2, "B": B, "H3": H3, "D": D, "t_b": t_b, "t_c": t_c,
         "p_p": p_p, "p_t": B - p_p - t_b, "cara_vertical": cara_vertical,
@@ -76,73 +66,58 @@ if submitted:
         "P2": P2, "Af2": Af2, "C2": 40.0, "Pem": 23.58, "Pes": 18.0,
         "qsc": qsc, "Kh": Kh, "fc": fc, "fy": fy
     }
-    # Cálculos derivados
     if data["cara_vertical"] == 'interior':
         data["Bb1"], data["Bb3"] = 0.0, data["t_b"] - data["t_c"]
     else:
         data["Bb1"], data["Bb3"] = data["t_b"] - data["t_c"], 0.0
     data["Bb2"] = data["t_c"]
     
-    # Almacenar datos en el estado de la sesión para reusarlos
     st.session_state.data = data
     st.session_state.analysis_done = True
 else:
     st.info("⬅️ Ingrese los parámetros en la barra lateral y presione 'Analizar Muro'.")
 
-# Solo mostrar los resultados si el análisis se ha ejecutado
 if st.session_state.get('analysis_done', False):
     data = st.session_state.data
     
-    # Realizar cálculos geotécnicos y guardarlos en el estado de la sesión
-    st.session_state.rankine_results = perform_geotechnical_calculations(data, method='rankine')
-    st.session_state.coulomb_results = perform_geotechnical_calculations(data, method='coulomb')
+    # Añadimos el prefijo del módulo a cada llamada de función
+    st.session_state.rankine_results = muro_analysis_funcs.perform_geotechnical_calculations(data, method='rankine')
+    st.session_state.coulomb_results = muro_analysis_funcs.perform_geotechnical_calculations(data, method='coulomb')
 
-    # Crear pestañas para organizar los resultados
     tab1, tab2, tab3 = st.tabs(["📊 Resumen y Geotecnia", "🛠️ Diseño de Refuerzo", "💻 Análisis FEM"])
 
     with tab1:
         st.header("Resumen Gráfico y Geotécnico")
-
         col1, col2 = st.columns([1, 2])
         with col1:
             st.subheader("Sección Transversal")
-            # En lugar de plt.show(), usamos st.pyplot(fig)
             fig_muro, ax_muro = plt.subplots(figsize=(6, 8))
-            graficar_muro_contencion(data)
+            muro_analysis_funcs.graficar_muro_contencion(data)
             st.pyplot(fig_muro)
-
         with col2:
             st.subheader("Verificación de Estabilidad")
-            # Capturar la salida de print_geotechnical_report
             f = io.StringIO()
             with redirect_stdout(f):
-                print_geotechnical_report(st.session_state.rankine_results, "Rankine")
-            s = f.getvalue()
-            st.code(s, language='text')
+                muro_analysis_funcs.print_geotechnical_report(st.session_state.rankine__results, "Rankine")
+            st.code(f.getvalue(), language='text')
             
             f = io.StringIO()
             with redirect_stdout(f):
-                print_geotechnical_report(st.session_state.coulomb_results, "Coulomb")
-            s = f.getvalue()
-            st.code(s, language='text')
+                muro_analysis_funcs.print_geotechnical_report(st.session_state.coulomb_results, "Coulomb")
+            st.code(f.getvalue(), language='text')
 
         st.subheader("Diagramas Comparativos")
-        # Mostrar los diagramas generados por la función original
-        # Suprimimos la salida de la función original para controlar los gráficos
         with st.spinner("Generando diagramas..."):
-            # Ocultamos la función original de plt.show()
             plt.ioff()
-            generate_all_diagrams(st.session_state.rankine_results, st.session_state.coulomb_results)
-            # Obtenemos todas las figuras generadas y las mostramos en Streamlit
+            muro_analysis_funcs.generate_all_diagrams(st.session_state.rankine_results, st.session_state.coulomb_results)
             figs = [plt.figure(n) for n in plt.get_fignums()]
             for fig in figs:
                 st.pyplot(fig)
-            plt.ion() # Reactivamos el modo interactivo
+            plt.ion()
 
     with tab2:
         st.header("Diseño de Refuerzo Estructural (E.060)")
         with st.spinner("Calculando acero de refuerzo..."):
-            # Capturamos toda la salida impresa de la función de diseño
             f_refuerzo = io.StringIO()
             with redirect_stdout(f_refuerzo):
                 presiones_rankine = {
@@ -151,9 +126,8 @@ if st.session_state.get('analysis_done', False):
                     'qpie_sis': st.session_state.rankine_results.get('qpie_seismic', 0),
                     'qtalon_sis': st.session_state.rankine_results.get('qtalon_seismic', 0)
                 }
-                realizar_diseno_refuerzo(data, st.session_state.rankine_results['Ka'], st.session_state.rankine_results.get('Kae', st.session_state.rankine_results['Ka']), presiones_rankine)
-            s_refuerzo = f_refuerzo.getvalue()
-            st.code(s_refuerzo, language='text')
+                muro_analysis_funcs.realizar_diseno_refuerzo(data, st.session_state.rankine_results['Ka'], st.session_state.rankine_results.get('Kae', st.session_state.rankine_results['Ka']), presiones_rankine)
+            st.code(f_refuerzo.getvalue(), language='text')
     
     with tab3:
         st.header("Análisis por Elementos Finitos (FEM)")
@@ -163,35 +137,31 @@ if st.session_state.get('analysis_done', False):
         with col_fem1:
             fem_method = st.selectbox("Método de Carga para FEM", ["Rankine", "Coulomb"])
             fem_case = st.selectbox("Caso de Carga para FEM", ["static", "seismic"])
-            
         with col_fem2:
             mesh_p = st.number_input("Densidad de la malla", value=6.0, help="Mayor valor = malla más fina.")
-            escala_vis = st.number_input("Factor de escala de la deformada", value=100.0)
+            escala_vis = st.number_input("Factor de escala de la deformada", value=10.0)
 
         if st.button("Ejecutar Análisis FEM"):
-            
             geo_results_fem = st.session_state.rankine_results if fem_method == "Rankine" else st.session_state.coulomb_results
-            
             with st.spinner("Ejecutando análisis FEM... Esto puede tardar un momento."):
-                # La función original de FEM es muy interactiva y muestra plots. La adaptamos.
-                # Capturamos toda la salida y los plots
                 f_fem = io.StringIO()
-                class StreamlitLogger: # Logger simple para capturar texto para Streamlit
+                class StreamlitLogger:
                     def write(self, message): f_fem.write(message)
                     def flush(self): pass
                     def close(self): pass
 
                 with redirect_stdout(f_fem):
-                    # Redefinimos input y plt.show para que no interrumpan la app
                     def st_input(prompt):
                         if "malla" in prompt.lower(): return mesh_p
                         if "escala" in prompt.lower(): return escala_vis
                         return ""
                     
+                    # --- LÍNEAS CORREGIDAS ---
+                    # Ahora modificamos el módulo importado correctamente
                     muro_analysis_funcs.input = st_input
                     muro_analysis_funcs.plt.show = lambda: st.pyplot(plt.gcf())
                     
-                    run_fem_analysis(data, geo_results_fem, fem_method, fem_case, logger=StreamlitLogger())
+                    # Y llamamos a la función con el prefijo del módulo
+                    muro_analysis_funcs.run_fem_analysis(data, geo_results_fem, fem_method, fem_case, logger=StreamlitLogger())
                 
-                s_fem = f_fem.getvalue()
-                st.code(s_fem, language='text')
+                st.code(f_fem.getvalue(), language='text')
