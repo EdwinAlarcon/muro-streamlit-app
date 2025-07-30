@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Jul 29 19:53:27 2025
+Created on Tue Jul 29 20:03:42 2025
 
 @author: USUARIO
 """
 
-# app.py (CORREGIDO)
+# app.py (VERSIÓN FINAL CORREGIDA)
 import streamlit as st
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -14,8 +14,7 @@ import io
 import sys
 from contextlib import redirect_stdout
 
-# --- CAMBIO IMPORTANTE ---
-# Ahora importamos el módulo completo para poder referirnos a él
+# Importamos el módulo completo
 import muro_analysis_funcs
 
 # --- Configuración de la Página ---
@@ -80,7 +79,6 @@ else:
 if st.session_state.get('analysis_done', False):
     data = st.session_state.data
     
-    # Añadimos el prefijo del módulo a cada llamada de función
     st.session_state.rankine_results = muro_analysis_funcs.perform_geotechnical_calculations(data, method='rankine')
     st.session_state.coulomb_results = muro_analysis_funcs.perform_geotechnical_calculations(data, method='coulomb')
 
@@ -98,7 +96,8 @@ if st.session_state.get('analysis_done', False):
             st.subheader("Verificación de Estabilidad")
             f = io.StringIO()
             with redirect_stdout(f):
-                muro_analysis_funcs.print_geotechnical_report(st.session_state.rankine__results, "Rankine")
+                # CORRECCIÓN APLICADA AQUÍ
+                muro_analysis_funcs.print_geotechnical_report(st.session_state.rankine_results, "Rankine")
             st.code(f.getvalue(), language='text')
             
             f = io.StringIO()
@@ -156,12 +155,9 @@ if st.session_state.get('analysis_done', False):
                         if "escala" in prompt.lower(): return escala_vis
                         return ""
                     
-                    # --- LÍNEAS CORREGIDAS ---
-                    # Ahora modificamos el módulo importado correctamente
                     muro_analysis_funcs.input = st_input
                     muro_analysis_funcs.plt.show = lambda: st.pyplot(plt.gcf())
                     
-                    # Y llamamos a la función con el prefijo del módulo
                     muro_analysis_funcs.run_fem_analysis(data, geo_results_fem, fem_method, fem_case, logger=StreamlitLogger())
                 
                 st.code(f_fem.getvalue(), language='text')
